@@ -3,3 +3,5 @@ langgraph-checkpoint-sqlite
 langchain-google-genai
 langchain-core
 python-dotenv
+fastapi
+uvicorn
