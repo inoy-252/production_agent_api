@@ -63,13 +63,9 @@ production_agent_api/
 ├── agent_sqlite_persistence.py  # LangGraph agent, tools, and SQLite checkpointer
 ├── api.py                       # FastAPI application, Pydantic schemas, and SSE streaming
 ├── requirements.txt             # Locked project dependencies
-├── .env.example                 # Environment template
-├── .gitignore                   # Defensive git ignores (prevents leaking secrets/DB)
-├── Chunk_1_Notes.md             # Study notes: SQLite persistence & guardrails
-├── Chunk_2_Notes.md             # Study notes: FastAPI & Pydantic validation
-├── Chunk_3_Notes.md             # Study notes: Real-time SSE token streaming
-├── Chunk_4_Notes.md             # Study notes: Autonomous RAG knowledge integration
-└── PROJECT_4_COMPLETE_STUDY_GUIDE.md  # Master architectural & interview study guide
+├── .env.example                 # Environment configuration template
+├── .gitignore                   # Git exclusion rules
+└── README.md                    # Project documentation and API contracts
 ```
 
 ---
