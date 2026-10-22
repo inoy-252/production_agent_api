@@ -69,7 +69,7 @@ if user_prompt := st.chat_input(
                     "http://127.0.0.1:8000/chat/stream",
                     json={"prompt": user_prompt, "thread_id": thread_id},
                     stream=True,
-                    timeout=60,
+                    timeout=(0.2, 60),
                 )
 
                 if response.status_code != 200:
