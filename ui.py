@@ -1,4 +1,5 @@
 import os
+import sqlite3
 
 import streamlit as st
 
@@ -20,8 +21,9 @@ from agent_sqlite_persistence import DB_PATH, builder
 @st.cache_resource
 def get_agent():
     """Compile the LangGraph agent ONCE and cache it for all users."""
-    checkpointer = SqliteSaver.from_conn_string(DB_PATH)
-    return builder.compile(checkpointer=checkpointer)  # type: ignore
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+    return builder.compile(checkpointer=checkpointer)
 
 
 st.set_page_config(page_title="Production AI Agent", page_icon="🤖", layout="wide")
