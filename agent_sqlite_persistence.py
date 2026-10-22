@@ -28,7 +28,7 @@ def calculate_budget(total_budget: float, days: int) -> str:
     if days <= 0:
         return "Error: Number of days must be greater than zero."
     daily = total_budget / days
-    return f"Daily spending allowance is ${daily:.2f} per day over {days} days."
+    return f"Daily spending allowance is USD {daily:.2f} per day over {days} days."
 
 
 COMPANY_KNOWLEDGE = {
@@ -49,18 +49,35 @@ COMPANY_KNOWLEDGE = {
     ),
 }
 
-
 @tool
 def search_knowledge_base(query: str) -> str:
     """Searches internal company travel policies, baggage limits, meal per diems, and safety runbooks."""
-    query_words = query.lower().split()
-    matches = []
 
+    stop_words = {
+        "company",
+        "travel",
+        "policy",
+        "for",
+        "the",
+        "in",
+        "what",
+        "is",
+        "our",
+    }
+    query_words = [w for w in query.lower().split() if w not in stop_words]
+
+    scored_matches = []
     for title, text in COMPANY_KNOWLEDGE.items():
-        if any(word in text.lower() or word in title.lower() for word in query_words):
-            matches.append(f"[{title.upper()}]: {text}")
-    if matches:
-        return "\n\n".join(matches)
+        
+        score = sum(1 for w in query_words if w in text.lower() or w in title.lower())
+        if score > 0:
+            clean_text = text.replace("$", "USD ")
+            scored_matches.append((score, f"[{title.upper()}]: {clean_text}"))
+    
+    scored_matches.sort(key=lambda x: x[0], reverse=True)
+    if scored_matches:
+        
+        return scored_matches[0][1]
     return "No matching company policy found for this query."
 
 

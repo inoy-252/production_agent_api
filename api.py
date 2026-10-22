@@ -95,19 +95,23 @@ def chat_stream_endpoint(request: ChatRequest):
                     config=config,  # type: ignore
                     stream_mode="messages",
                 ):
-                    raw_content = getattr(chunk, "content", None)
-                    if raw_content:
-                        text = raw_content
-                        if (
-                            isinstance(text, list)
-                            and len(text) > 0
-                            and isinstance(text[0], dict)
-                            and "text" in text[0]
-                        ):
-                            text = text[0]["text"]
+                    if (
+                        isinstance(meta, dict)
+                        and meta.get("langgraph_node") == "chatbot"
+                    ):
+                        raw_content = getattr(chunk, "content", None)
+                        if raw_content:
+                            text = raw_content
+                            if (
+                                isinstance(text, list)
+                                and len(text) > 0
+                                and isinstance(text[0], dict)
+                                and "text" in text[0]
+                            ):
+                                text = text[0]["text"]
 
-                        if isinstance(text, str) and text:
-                            yield f"data: {json.dumps({'token': text})}\n\n"
+                            if isinstance(text, str) and text:
+                                yield f"data: {json.dumps({'token': text})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
