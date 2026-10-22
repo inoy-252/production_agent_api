@@ -31,16 +31,50 @@ def calculate_budget(total_budget: float, days: int) -> str:
     return f"Daily spending allowance is ${daily:.2f} per day over {days} days."
 
 
-tools = [get_current_weather, calculate_budget]
+COMPANY_KNOWLEDGE = {
+    "baggage_policy": (
+        "Company Travel Policy Section 4: All employees on international business travel "
+        "are permitted up to two checked bags (max 23kg each) reimbursed by the company. "
+        "Overweight bag fees are not covered."
+    ),
+    "meal_allowance": (
+        "Company Travel Policy Section 7: Daily meal per diem for Tier 1 international cities "
+        "(including Tokyo, London, NYC) is fixed at $75 per day. Alcohol expenses require "
+        "pre-approval from finance."
+    ),
+    "emergency_protocol": (
+        "Travel Safety Runbook: In case of medical emergencies or natural disasters in Tokyo, "
+        "contact the 24/7 Global SOS hotline at +1-800-555-0199 and report your status to "
+        "travel-safety@company.com within 2 hours."
+    ),
+}
+
+
+@tool
+def search_knowledge_base(query: str) -> str:
+    """Searches internal company travel policies, baggage limits, meal per diems, and safety runbooks."""
+    query_words = query.lower().split()
+    matches = []
+
+    for title, text in COMPANY_KNOWLEDGE.items():
+        if any(word in text.lower() or word in title.lower() for word in query_words):
+            matches.append(f"[{title.upper()}]: {text}")
+    if matches:
+        return "\n\n".join(matches)
+    return "No matching company policy found for this query."
+
+
+tools = [get_current_weather, calculate_budget, search_knowledge_base]
 
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
 llm_with_tools = llm.bind_tools(tools)
 
 system_instruction = SystemMessage(
     content=(
-        "You are a professional travel assistant. "
+        "You are a professional enterprise travel assistant. "
         "Be friendly and concise. "
-        "Only execute tools when the user explicitly asks for weather or budget calculations."
+        "You have access to internal company travel policies and safety runbooks via search_knowledge_base. "
+        "Only execute tools when the user explicitly asks for weather, budget calculations, or company policies."
     )
 )
 
@@ -99,5 +133,11 @@ if __name__ == "__main__":
         "What's the weather in my trip city, and what is my daily allowance?",
         thread_id=yasir_session,
     )
-    print("\n=== TURN 3: Tenant Isolation (Yasir asks for his budget) ===")
+    print("\n=== TURN 3: Tenant Isolation (Emran asks for his budget) ===")
     run_agent_turn("What is my daily budget?", thread_id=emran_session)
+
+    print("\n=== TURN 4: Autonomous RAG Knowledge Search ===")
+    run_agent_turn(
+        "What is our company's baggage allowance policy for international flights, and who do I contact in an emergency in Tokyo?",
+        thread_id=yasir_session,
+    )
