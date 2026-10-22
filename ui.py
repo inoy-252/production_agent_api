@@ -1,7 +1,5 @@
-import json
 import os
 
-import requests
 import streamlit as st
 
 try:
@@ -17,6 +15,14 @@ from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from agent_sqlite_persistence import DB_PATH, builder
+
+
+@st.cache_resource
+def get_agent():
+    """Compile the LangGraph agent ONCE and cache it for all users."""
+    checkpointer = SqliteSaver.from_conn_string(DB_PATH)
+    return builder.compile(checkpointer=checkpointer)  # type: ignore
+
 
 st.set_page_config(page_title="Production AI Agent", page_icon="🤖", layout="wide")
 
@@ -64,30 +70,26 @@ if user_prompt := st.chat_input(
     with st.chat_message("assistant"):
 
         def agent_stream_generator():
-            with SqliteSaver.from_conn_string(DB_PATH) as checkpointer:
-                agent_app = builder.compile(checkpointer=checkpointer)
-                config = {"configurable": {"thread_id": thread_id}}
-                for chunk, meta in agent_app.stream(
-                    {"messages": [HumanMessage(content=user_prompt)]},
-                    config=config,  # type: ignore
-                    stream_mode="messages",
-                ):
-                    if (
-                        isinstance(meta, dict)
-                        and meta.get("langgraph_node") == "chatbot"
-                    ):
-                        raw_content = getattr(chunk, "content", None)
-                        if raw_content:
-                            text = raw_content
-                            if (
-                                isinstance(text, list)
-                                and len(text) > 0
-                                and isinstance(text[0], dict)
-                                and "text" in text[0]
-                            ):
-                                text = text[0]["text"]
-                            if isinstance(text, str) and text:
-                                yield text.replace("$", "USD ")
+            agent_app = get_agent()
+            config = {"configurable": {"thread_id": thread_id}}
+            for chunk, meta in agent_app.stream(
+                {"messages": [HumanMessage(content=user_prompt)]},
+                config=config,  # type: ignore
+                stream_mode="messages",
+            ):
+                if isinstance(meta, dict) and meta.get("langgraph_node") == "chatbot":
+                    raw_content = getattr(chunk, "content", None)
+                    if raw_content:
+                        text = raw_content
+                        if (
+                            isinstance(text, list)
+                            and len(text) > 0
+                            and isinstance(text[0], dict)
+                            and "text" in text[0]
+                        ):
+                            text = text[0]["text"]
+                        if isinstance(text, str) and text:
+                            yield text.replace("$", "USD ")
 
         full_response = st.write_stream(agent_stream_generator)
 
