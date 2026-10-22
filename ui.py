@@ -52,7 +52,7 @@ if "messages" not in st.session_state:
 
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"].replace("$", "\\$"))
+        st.markdown(message["content"].replace("$", "USD "))
 
 if user_prompt := st.chat_input(
     "Ask about your trip, weather, budget, or company policies..."
@@ -84,7 +84,7 @@ if user_prompt := st.chat_input(
                         try:
                             payload = json.loads(data_str)
                             if "token" in payload:
-                                token = payload["token"].replace("$", "\\$")
+                                token = payload["token"].replace("$", "USD ")
                                 yield token
                         except json.JSONDecodeError:
                             pass
@@ -112,7 +112,7 @@ if user_prompt := st.chat_input(
                                 ):
                                     text = text[0]["text"]
                                 if isinstance(text, str) and text:
-                                    yield text.replace("$", "\\$")
+                                    yield text.replace("$", "USD ")
 
         full_response = st.write_stream(sse_stream_generator)
 

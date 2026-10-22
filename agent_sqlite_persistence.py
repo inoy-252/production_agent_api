@@ -39,7 +39,7 @@ COMPANY_KNOWLEDGE = {
     ),
     "meal_allowance": (
         "Company Travel Policy Section 7: Daily meal per diem for Tier 1 international cities "
-        "(including Tokyo, London, NYC) is fixed at $75 per day. Alcohol expenses require "
+        "(including Tokyo, London, NYC) is fixed at 75 USD per day. Alcohol expenses require "
         "pre-approval from finance."
     ),
     "emergency_protocol": (
@@ -48,6 +48,7 @@ COMPANY_KNOWLEDGE = {
         "travel-safety@company.com within 2 hours."
     ),
 }
+
 
 @tool
 def search_knowledge_base(query: str) -> str:
@@ -68,15 +69,13 @@ def search_knowledge_base(query: str) -> str:
 
     scored_matches = []
     for title, text in COMPANY_KNOWLEDGE.items():
-        
         score = sum(1 for w in query_words if w in text.lower() or w in title.lower())
         if score > 0:
             clean_text = text.replace("$", "USD ")
             scored_matches.append((score, f"[{title.upper()}]: {clean_text}"))
-    
+
     scored_matches.sort(key=lambda x: x[0], reverse=True)
     if scored_matches:
-        
         return scored_matches[0][1]
     return "No matching company policy found for this query."
 
@@ -91,7 +90,8 @@ system_instruction = SystemMessage(
         "You are a professional enterprise travel assistant. "
         "Be friendly and concise. "
         "You have access to internal company travel policies and safety runbooks via search_knowledge_base. "
-        "Only execute tools when the user explicitly asks for weather, budget calculations, or company policies."
+        "Only execute tools when the user explicitly asks for weather, budget calculations, or company policies. "
+        "Always write currency amounts using 'USD' (e.g. 'USD 1,700' or '340 USD') and never use the '$' dollar sign symbol."
     )
 )
 
