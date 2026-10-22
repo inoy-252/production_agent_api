@@ -44,7 +44,7 @@ st.sidebar.markdown(
 
 st.title("Production AI Travel & Enterprise Agent")
 st.caption(
-    f"Connected to FastAPI Backend at `http://127.0.0.1:8000` | Active Session: `{thread_id}`"
+    f"Architecture: LangGraph ReAct + SQLite Persistence | Active Session: `{thread_id}`"
 )
 
 if "messages" not in st.session_state:
@@ -63,57 +63,32 @@ if user_prompt := st.chat_input(
 
     with st.chat_message("assistant"):
 
-        def sse_stream_generator():
-            try:
-                response = requests.post(
-                    "http://127.0.0.1:8000/chat/stream",
-                    json={"prompt": user_prompt, "thread_id": thread_id},
-                    stream=True,
-                    timeout=(0.2, 60),
-                )
-
-                if response.status_code != 200:
-                    yield f"Backend Error: HTTP {response.status_code}"
-                    return
-                for raw_line in response.iter_lines(decode_unicode=True):
-                    line = str(raw_line) if raw_line else ""
-                    if line and line.startswith("data: "):
-                        data_str = line[6:].strip()
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            payload = json.loads(data_str)
-                            if "token" in payload:
-                                token = payload["token"].replace("$", "USD ")
-                                yield token
-                        except json.JSONDecodeError:
-                            pass
-            except requests.exceptions.ConnectionError:
-                with SqliteSaver.from_conn_string(DB_PATH) as checkpointer:
-                    agent_app = builder.compile(checkpointer=checkpointer)
-                    config = {"configurable": {"thread_id": thread_id}}
-                    for chunk, meta in agent_app.stream(
-                        {"messages": [HumanMessage(content=user_prompt)]},
-                        config=config,  # type: ignore
-                        stream_mode="messages",
+        def agent_stream_generator():
+            with SqliteSaver.from_conn_string(DB_PATH) as checkpointer:
+                agent_app = builder.compile(checkpointer=checkpointer)
+                config = {"configurable": {"thread_id": thread_id}}
+                for chunk, meta in agent_app.stream(
+                    {"messages": [HumanMessage(content=user_prompt)]},
+                    config=config,  # type: ignore
+                    stream_mode="messages",
+                ):
+                    if (
+                        isinstance(meta, dict)
+                        and meta.get("langgraph_node") == "chatbot"
                     ):
-                        if (
-                            isinstance(meta, dict)
-                            and meta.get("langgraph_node") == "chatbot"
-                        ):
-                            raw_content = getattr(chunk, "content", None)
-                            if raw_content:
-                                text = raw_content
-                                if (
-                                    isinstance(text, list)
-                                    and len(text) > 0
-                                    and isinstance(text[0], dict)
-                                    and "text" in text[0]
-                                ):
-                                    text = text[0]["text"]
-                                if isinstance(text, str) and text:
-                                    yield text.replace("$", "USD ")
+                        raw_content = getattr(chunk, "content", None)
+                        if raw_content:
+                            text = raw_content
+                            if (
+                                isinstance(text, list)
+                                and len(text) > 0
+                                and isinstance(text[0], dict)
+                                and "text" in text[0]
+                            ):
+                                text = text[0]["text"]
+                            if isinstance(text, str) and text:
+                                yield text.replace("$", "USD ")
 
-        full_response = st.write_stream(sse_stream_generator)
+        full_response = st.write_stream(agent_stream_generator)
 
     st.session_state["messages"].append({"role": "assistant", "content": full_response})
