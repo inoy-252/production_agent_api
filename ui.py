@@ -1,7 +1,18 @@
 import json
+import os
 
 import requests
 import streamlit as st
+
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+        os.environ["GOOGLE_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    elif "GOOGLE_API_KEY" in st.secrets:
+        os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+        os.environ["GEMINI_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+except Exception:
+    pass
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite import SqliteSaver
 
