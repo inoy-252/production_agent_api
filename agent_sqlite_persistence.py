@@ -28,7 +28,7 @@ def calculate_budget(total_budget: float, days: int) -> str:
     if days <= 0:
         return "Error: Number of days must be greater than zero."
     daily = total_budget / days
-    return f"Daily spending allowance is USD {daily:.2f} per day over {days} days."
+    return f"Daily spending allowance is {daily:.2f} USD per day over {days} days."
 
 
 COMPANY_KNOWLEDGE = {
@@ -90,8 +90,12 @@ system_instruction = SystemMessage(
         "You are a professional enterprise travel assistant. "
         "Be friendly and concise. "
         "You have access to internal company travel policies and safety runbooks via search_knowledge_base. "
-        "Only execute tools when the user explicitly asks for weather, budget calculations, or company policies. "
-        "Always write currency amounts using 'USD' (e.g. 'USD 1,700' or '340 USD') and never use the '$' dollar sign symbol."
+        "CRITICAL BEHAVIORAL RULES: "
+        "- When a user introduces themselves or shares travel plans, simply greet them warmly and ask how you can help. Do NOT execute any tools yet. "
+        "- ONLY call get_current_weather when the user explicitly asks for the weather. "
+        "- ONLY call calculate_budget when the user explicitly requests their budget calculation or daily allowance. "
+        "- ONLY call search_knowledge_base when the user asks about company policies, baggage allowances, or safety protocols. "
+        "- Always write currency amounts cleanly (e.g. '340.00 USD' or '1,700 USD'). Never write duplicate currency codes like 'USD 340.00 USD', and never use the '$' dollar sign symbol."
     )
 )
 
