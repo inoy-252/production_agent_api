@@ -4,7 +4,6 @@ Project 5 - Chunk 1: Deterministic Behavioral Benchmarking
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -14,12 +13,12 @@ class EvalTestCase:
     category: str
     prompt: str
     expected_refusal: bool
-    required_keywords: List[str]
-    forbidden_keywords: List[str]
+    required_keywords: list[str]
+    forbidden_keywords: list[str]
 
 
 # Golden Benchmark Dataset for Agent Evaluation
-EVAL_DATASET: List[EvalTestCase] = [
+EVAL_DATASET: list[EvalTestCase] = [
     EvalTestCase(
         test_id="TC-01",
         category="Domain Guardrail",
@@ -65,11 +64,7 @@ def evaluate_response(test_case: EvalTestCase, response: str) -> bool:
             return False
 
     # Check 2: Required keyword presence (at least one must match)
-    has_required = any(req.lower() in resp_lower for req in test_case.required_keywords)
-    if not has_required:
-        return False
-
-    return True
+    return any(req.lower() in resp_lower for req in test_case.required_keywords)
 
 
 if __name__ == "__main__":
