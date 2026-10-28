@@ -20,10 +20,13 @@ from agent_sqlite_persistence import DB_PATH, builder
 
 @st.cache_resource
 def get_agent():
-    """Compile the LangGraph agent ONCE and cache it for all users."""
+    """Compile the LangGraph agent ONCE and cache it with HITL interuption enabled."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     checkpointer = SqliteSaver(conn)
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile(
+        checkpointer=checkpointer,
+        interrupt_before=["sensitive_tools"],
+    )
 
 
 st.set_page_config(page_title="Production AI Agent", page_icon="🤖", layout="wide")
@@ -94,5 +97,48 @@ if user_prompt := st.chat_input(
                             yield text.replace("$", "USD ")
 
         full_response = st.write_stream(agent_stream_generator)
+    if isinstance(full_response, str) and full_response.strip():
+        st.session_state["messages"].append(
+            {"role": "assistant", "content": full_response}
+        )
+    st.rerun()
 
-    st.session_state["messages"].append({"role": "assistant", "content": full_response})
+agent_app = get_agent()
+config = {"configurable": {"thread_id": thread_id}}
+current_state = agent_app.get_state(config)  # type: ignore
+
+if current_state.next and "sensitive_tools" in current_state.next:
+    last_msg = current_state.values.get("messages", [])[-1]
+    pending_calls = getattr(last_msg, "tool_calls", [])
+
+    for call in pending_calls:
+        if call.get("name") == "book_trip_flight":
+            dest = call.get("args", {}).get("destination", "unknown")
+            cost = call.get("args", {}).get("total_cost", 0.0)
+
+            with st.container():
+                st.warning("**Manager Approval Required: High-Risk Financial Action**")
+                st.markdown(
+                    f"The agent has queued a non-reversible booking transaction:\n\n"
+                    f"- **Destination:** {dest}\n"
+                    f"- **Committed Funds:** {cost:,.2f} USD\n\n"
+                    f"Execution is currently halted in SQLite. Click below to authorize funds."
+                )
+                if st.button("Approve & Commit Corporate Funds", type="primary"):
+                    with st.spinner("Authorizing funds and completing booking..."):
+                        res = agent_app.invoke(None, config=config)  # type: ignore
+                        final_msg = res["messages"][-1]
+                        final_text = getattr(final_msg, "content", "")
+                        if (
+                            isinstance(final_text, list)
+                            and len(final_text) > 0
+                            and isinstance(final_text[0], dict)
+                        ):
+                            final_text = final_text[0].get("text", "")
+                        st.session_state["messages"].append(
+                            {
+                                "role": "assistant",
+                                "content": str(final_text).replace("$", "USD "),
+                            }
+                        )
+                        st.rerun()

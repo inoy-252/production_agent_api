@@ -3,8 +3,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.graph import START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode
+
+from trimmed_agent import prepare_trimmed_context
 
 load_dotenv()
 
@@ -80,10 +82,18 @@ def search_knowledge_base(query: str) -> str:
     return "No matching company policy found for this query."
 
 
-tools = [get_current_weather, calculate_budget, search_knowledge_base]
+@tool
+def book_trip_flight(destination: str, total_cost: float) -> str:
+    """Books a corporate flight and commits company financial funds. SENSITIVE."""
+    return f"Success: Flight to {destination} confirmed and charged {total_cost} USD to comapny card"
+
+
+SAFE_TOOLS = [get_current_weather, calculate_budget, search_knowledge_base]
+SENSITIVE_TOOLS = [book_trip_flight]
+ALL_TOOLS = SAFE_TOOLS + SENSITIVE_TOOLS
 
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
-llm_with_tools = llm.bind_tools(tools)
+llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
 system_instruction = SystemMessage(
     content=(
@@ -101,26 +111,46 @@ system_instruction = SystemMessage(
         "- ONLY call get_current_weather when the user explicitly asks for the weather.\n"
         "- ONLY call calculate_budget when the user explicitly requests their budget calculation or daily allowance.\n"
         "- ONLY call search_knowledge_base when the user asks about company policies, baggage allowances, or safety protocols.\n"
+        "- ONLY call book_trip_flight when the user explicitly asks to book a flight or trip, providing the destination and total cost."
         "- Always write currency amounts cleanly (e.g. '340.00 USD' or '1,700 USD'). Never write duplicate currency codes like 'USD 340.00 USD', and never use the '$' dollar sign symbol."
     )
 )
 
 
 def chatbot_node(state: MessagesState) -> dict:
-    """The brain node: invokes Gemini with accumulated messages."""
-    messages = [system_instruction] + state["messages"]
+    """The brain node: invokes Gemini with trimmed message context."""
+    messages = prepare_trimmed_context(state, system_instruction, max_history_turns=6)
     response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
 
 
-builder = StateGraph(MessagesState)
+def route_tools(state: MessagesState) -> str:
+    """Selectively routes to sensitive_tools or safe_tools."""
+    last_message = state["messages"][-1]
+    tool_calls = getattr(last_message, "tool_calls", None)
+    if not tool_calls:
+        return "end"
+    sensitive_names = [t.name for t in SENSITIVE_TOOLS]
+    for call in tool_calls:
+        if call["name"] in sensitive_names:
+            return "sensitive_tools"
 
+    return "safe_tools"
+
+
+builder = StateGraph(MessagesState)
 builder.add_node("chatbot", chatbot_node)
-builder.add_node("tools", ToolNode(tools))
+builder.add_node("safe_tools", ToolNode(SAFE_TOOLS))
+builder.add_node("sensitive_tools", ToolNode(SENSITIVE_TOOLS))
 
 builder.add_edge(START, "chatbot")
-builder.add_conditional_edges("chatbot", tools_condition)
-builder.add_edge("tools", "chatbot")
+builder.add_conditional_edges(
+    "chatbot",
+    route_tools,
+    {"safe_tools": "safe_tools", "sensitive_tools": "sensitive_tools", "end": END},
+)
+builder.add_edge("safe_tools", "chatbot")
+builder.add_edge("sensitive_tools", "chatbot")
 
 DB_PATH = "agent_memory.db"
 
